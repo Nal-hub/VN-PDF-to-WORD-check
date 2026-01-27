@@ -1,668 +1,78 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VN PDF to Word - AI Powered</title>
-    <meta name="description" content="Chuyển đổi PDF sang Word giữ nguyên định dạng sử dụng AI.">
-    
-    <!-- 1. Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { primary: '#0f172a', secondary: '#334155', accent: '#3b82f6' },
-                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Times New Roman', 'serif'] }
-                }
-            }
-        }
-    </script>
+VN PDF to Word - AI Powered
 
-    <!-- 2. Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- 3. Icons (Lucide) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- 4. PDF.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
 
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .document-preview { font-family: 'Times New Roman', serif; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        /* Animation utilities */
-        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "@google/genai": "https://esm.sh/@google/genai@^1.38.0",
-    "react": "https://esm.sh/react@^19.2.4",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
-  }
+body { font-family: 'Inter', sans-serif; }
+.document-preview { font-family: 'Times New Roman', serif; }
+
+
+
+
+
+
+
+
+
+VN PDF to Word
+AI Powered by Gemini
+
+
+
+
+Lấy Key
+
+
+
+
+
+
+
+
+
+Thêm file PDF
+
+
+
+Chưa có file nào được chọn
+
+
+
+
+
+Chọn file để xem nội dung
+
+
+
+
+
+
+
+
+// 1. Khởi tạo Icons
+lucide.createIcons();
+// 2. Xử lý File Input
+const fileInput = document.getElementById('file-input');
+const fileList = document.getElementById('file-list');
+const previewContainer = document.getElementById('preview-container');
+const previewEmpty = document.getElementById('preview-empty');
+fileInput.addEventListener('change', function(e) {
+const files = e.target.files;
+if (files.length > 0) {
+fileList.innerHTML = ''; // Xóa trạng thái trống
+Array.from(files).forEach(file => {
+const div = document.createElement('div');
+div.className = "p-3 bg-slate-50 border rounded-lg cursor-pointer hover:border-blue-500 transition-all";
+div.innerHTML = <p class="text-sm font-medium truncate">${file.name}</p>;
+div.onclick = () => showPreview(file);
+fileList.appendChild(div);
+});
 }
-</script>
-</head>
-<body class="bg-slate-50 text-slate-900 h-screen overflow-hidden selection:bg-blue-100 selection:text-blue-900 flex flex-col">
-
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10 shrink-0">
-        <div class="flex items-center gap-3">
-            <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-2 rounded-lg text-white">
-                <i data-lucide="file-text" class="w-5 h-5"></i>
-            </div>
-            <div>
-                <h1 class="text-xl font-bold text-slate-800">VN PDF to Word</h1>
-                <p class="text-xs text-slate-500 font-medium">Batch Processing • Gemini 2.5 AI</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-2">
-            <!-- API Key Input -->
-            <div class="relative group">
-                <input type="password" id="api-key-input" placeholder="Nhập API Key..." 
-                    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-48 focus:w-64 focus:outline-none focus:border-blue-500 transition-all bg-slate-50"
-                >
-                <div class="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:block" title="API Key được lưu trên trình duyệt của bạn">
-                    <i data-lucide="key" class="w-4 h-4 text-slate-400"></i>
-                </div>
-            </div>
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-xs text-blue-600 hover:underline font-medium">Lấy Key</a>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-hidden flex flex-col md:flex-row relative">
-        
-        <!-- Drag Overlay -->
-        <div id="drag-overlay" class="hidden absolute inset-0 z-50 bg-blue-500/10 backdrop-blur-sm border-4 border-blue-500 border-dashed m-4 rounded-2xl flex items-center justify-center pointer-events-none transition-all">
-            <div class="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center animate-bounce">
-                <i data-lucide="upload-cloud" class="w-16 h-16 text-blue-500 mb-4"></i>
-                <h2 class="text-2xl font-bold text-slate-800">Thả file PDF vào đây</h2>
-            </div>
-        </div>
-
-        <!-- Left Panel: File List -->
-        <div class="w-full md:w-1/3 flex flex-col border-r border-slate-200 bg-white">
-            <div class="p-4 border-b border-slate-100 shadow-sm z-10 bg-white">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-semibold text-slate-800">Danh sách file</h2>
-                    <span id="file-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">0 file</span>
-                </div>
-                
-                <input type="file" id="file-input" accept=".pdf" multiple class="hidden">
-                <label for="file-input" class="flex items-center justify-center gap-2 w-full py-3 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer font-medium select-none">
-                    <i data-lucide="copy-plus" class="w-5 h-5"></i>
-                    <span>Thêm file PDF</span>
-                </label>
-            </div>
-
-            <div id="file-list-container" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
-                <!-- Empty State -->
-                <div id="empty-state" class="h-40 flex flex-col items-center justify-center text-slate-400 text-center border-2 border-dashed border-slate-200 rounded-xl m-2 select-none">
-                    <p class="text-sm font-medium">Danh sách trống</p>
-                    <p class="text-xs mt-1">Kéo thả file hoặc dán (Ctrl+V)</p>
-                </div>
-                <!-- File Items will be injected here via JS -->
-            </div>
-        </div>
-
-        <!-- Right Panel: Preview -->
-        <div class="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden relative">
-            
-            <!-- Welcome / No Selection State -->
-            <div id="preview-empty" class="absolute inset-0 flex items-center justify-center text-slate-400 z-0">
-                <div class="text-center">
-                    <i data-lucide="file-text" class="w-16 h-16 mx-auto mb-3 opacity-20"></i>
-                    <p class="text-lg font-medium opacity-50">Chọn một file để xem chi tiết</p>
-                </div>
-            </div>
-
-            <!-- Content Container -->
-            <div id="preview-content" class="flex-col h-full hidden z-10 bg-slate-50 w-full">
-                <!-- Toolbar -->
-                <div class="bg-white px-6 py-3 border-b border-slate-200 flex items-center justify-between shadow-sm shrink-0">
-                    <h2 id="preview-filename" class="font-bold text-slate-800 flex items-center gap-2 truncate max-w-md">
-                        <!-- Filename -->
-                    </h2>
-                    <div class="flex items-center gap-3">
-                        <span id="preview-page-count" class="text-xs bg-slate-100 px-3 py-1 rounded-full text-slate-600 font-medium"></span>
-                        <button id="download-btn" class="hidden text-xs bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-sm">
-                            <i data-lucide="download" class="w-4 h-4"></i> Tải về (.doc)
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Pages Preview -->
-                <div id="preview-pages" class="flex-1 overflow-y-auto p-8 document-preview w-full mx-auto max-w-5xl">
-                    <!-- HTML Pages rendered here -->
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- MAIN LOGIC -->
-    <script type="module">
-        // Import trực tiếp từ CDN, không cần importmap phức tạp
-        import { GoogleGenAI } from "https://esm.sh/@google/genai@0.1.1";
-
-        // --- DATA TYPES & STATE ---
-        const Status = {
-            QUEUED: 'QUEUED',
-            PROCESSING_PDF: 'PROCESSING_PDF',
-            ANALYZING_AI: 'ANALYZING_AI',
-            COMPLETED: 'COMPLETED',
-            ERROR: 'ERROR'
-        };
-
-        const state = {
-            queue: [], // Array of objects: { id, file, status, progress, pages: [], errorMessage, pageCount }
-            selectedId: null,
-            isProcessing: false,
-            apiKey: localStorage.getItem('gemini_api_key') || ''
-        };
-
-        // --- DOM REFERENCES ---
-        const els = {
-            apiKeyInput: document.getElementById('api-key-input'),
-            fileInput: document.getElementById('file-input'),
-            fileListContainer: document.getElementById('file-list-container'),
-            emptyState: document.getElementById('empty-state'),
-            fileCount: document.getElementById('file-count'),
-            dragOverlay: document.getElementById('drag-overlay'),
-            previewEmpty: document.getElementById('preview-empty'),
-            previewContent: document.getElementById('preview-content'),
-            previewFilename: document.getElementById('preview-filename'),
-            previewPageCount: document.getElementById('preview-page-count'),
-            previewPages: document.getElementById('preview-pages'),
-            downloadBtn: document.getElementById('download-btn'),
-        };
-
-        // --- INITIALIZATION ---
-        // Load API Key if exists
-        els.apiKeyInput.value = state.apiKey;
-        // Init Icons
-        lucide.createIcons();
-
-        // --- EVENT LISTENERS ---
-
-        // 1. API Key Input
-        els.apiKeyInput.addEventListener('input', (e) => {
-            state.apiKey = e.target.value.trim();
-            localStorage.setItem('gemini_api_key', state.apiKey);
-        });
-
-        // 2. File Selection (Button)
-        els.fileInput.addEventListener('change', (e) => handleFiles(Array.from(e.target.files)));
-
-        // 3. Drag & Drop Global
-        let dragCounter = 0;
-        window.addEventListener('dragenter', (e) => {
-            e.preventDefault(); 
-            dragCounter++;
-            if (e.dataTransfer.types.includes('Files')) els.dragOverlay.classList.remove('hidden');
-        });
-        window.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            dragCounter--;
-            if (dragCounter === 0) els.dragOverlay.classList.add('hidden');
-        });
-        window.addEventListener('dragover', (e) => e.preventDefault());
-        window.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dragCounter = 0;
-            els.dragOverlay.classList.add('hidden');
-            if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files));
-        });
-
-        // 4. Paste
-        window.addEventListener('paste', (e) => {
-            if (e.clipboardData.files.length) handleFiles(Array.from(e.clipboardData.files));
-        });
-
-        // 5. Download Button
-        els.downloadBtn.addEventListener('click', () => {
-            const item = state.queue.find(i => i.id === state.selectedId);
-            if (item && item.status === Status.COMPLETED) {
-                downloadAsDoc(item);
-            }
-        });
-
-        // --- CORE FUNCTIONS ---
-
-        function handleFiles(files) {
-            const pdfFiles = files.filter(f => f.type === 'application/pdf');
-            if (pdfFiles.length === 0 && files.length > 0) {
-                alert("Vui lòng chỉ chọn file PDF");
-                return;
-            }
-            if (pdfFiles.length === 0) return;
-
-            const newItems = pdfFiles.map(file => ({
-                id: Math.random().toString(36).substring(2, 9),
-                file,
-                status: Status.QUEUED,
-                progress: 0,
-                pages: [],
-                pageCount: 0,
-                errorMessage: ''
-            }));
-
-            state.queue = [...state.queue, ...newItems];
-            
-            // Auto select if it's the first file
-            if (!state.selectedId && newItems.length > 0) {
-                selectItem(newItems[0].id);
-            } else {
-                renderQueue(); // Just update list
-            }
-
-            // Start Processing Loop
-            processQueue();
-        }
-
-        function selectItem(id) {
-            state.selectedId = id;
-            renderQueue(); // Update styles for active item
-            renderPreview(); // Show content
-        }
-
-        function removeQueueItem(id, event) {
-            if (event) event.stopPropagation();
-            state.queue = state.queue.filter(i => i.id !== id);
-            
-            // If we removed the selected item, select another one or clear
-            if (state.selectedId === id) {
-                state.selectedId = state.queue.length > 0 ? state.queue[0].id : null;
-            }
-            renderQueue();
-            renderPreview();
-        }
-
-        // --- UI RENDERING ---
-
-        function renderQueue() {
-            els.fileCount.textContent = `${state.queue.length} file`;
-            
-            // Empty State Logic
-            if (state.queue.length === 0) {
-                els.emptyState.style.display = 'flex';
-                els.fileListContainer.innerHTML = '';
-                els.fileListContainer.appendChild(els.emptyState);
-                return;
-            }
-            els.emptyState.style.display = 'none';
-
-            // Re-render list
-            // Note: For a small app, clearing innerHTML and rebuilding is fine.
-            const fragment = document.createDocumentFragment();
-            
-            state.queue.forEach(item => {
-                const isSelected = item.id === state.selectedId;
-                const el = document.createElement('div');
-                
-                // Style classes
-                let containerClass = "group relative p-4 rounded-xl border transition-all cursor-pointer mb-3 select-none ";
-                containerClass += isSelected 
-                    ? 'bg-white border-blue-400 ring-1 ring-blue-400 shadow-md' 
-                    : 'bg-white border-slate-200 hover:border-blue-200 hover:shadow-sm';
-                el.className = containerClass;
-                
-                el.onclick = () => selectItem(item.id);
-
-                // Status Config
-                let statusColor = 'text-blue-600';
-                let statusText = 'Đang chờ';
-                let iconBg = 'bg-blue-50 text-blue-600';
-                let progressColor = 'bg-blue-500';
-
-                if (item.status === Status.PROCESSING_PDF) statusText = 'Đang đọc PDF...';
-                if (item.status === Status.ANALYZING_AI) statusText = 'Đang xử lý AI...';
-                if (item.status === Status.COMPLETED) {
-                    statusText = 'Hoàn tất';
-                    statusColor = 'text-green-600';
-                    iconBg = 'bg-green-100 text-green-600';
-                    progressColor = 'bg-green-500';
-                }
-                if (item.status === Status.ERROR) {
-                    statusText = 'Lỗi';
-                    statusColor = 'text-red-600';
-                    iconBg = 'bg-red-100 text-red-600';
-                    progressColor = 'bg-red-500';
-                }
-
-                // HTML Structure
-                el.innerHTML = `
-                    <div class="flex items-start justify-between mb-2">
-                        <div class="flex items-center gap-3 overflow-hidden">
-                            <div class="p-2 rounded-lg ${iconBg}">
-                                <i data-lucide="${item.status === Status.COMPLETED ? 'check-circle-2' : 'file-text'}" class="w-5 h-5"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <h3 class="font-medium text-slate-800 text-sm truncate pr-2" title="${item.file.name}">${item.file.name}</h3>
-                                <p class="text-xs text-slate-500">${(item.file.size / 1024 / 1024).toFixed(2)} MB</p>
-                            </div>
-                        </div>
-                        <button class="remove-btn text-slate-300 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="font-medium ${statusColor} flex items-center gap-1">
-                                ${item.status === Status.PROCESSING_PDF || item.status === Status.ANALYZING_AI ? '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i>' : ''}
-                                ${statusText}
-                            </span>
-                            <span class="text-slate-400">${Math.round(item.progress)}%</span>
-                        </div>
-                        <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                            <div class="h-full rounded-full transition-all duration-500 ${progressColor}" style="width: ${item.progress}%"></div>
-                        </div>
-                    </div>
-                `;
-
-                // Attach delete event
-                el.querySelector('.remove-btn').onclick = (e) => removeQueueItem(item.id, e);
-
-                fragment.appendChild(el);
-            });
-
-            els.fileListContainer.innerHTML = '';
-            els.fileListContainer.appendChild(fragment);
-            lucide.createIcons({ root: els.fileListContainer });
-        }
-
-        function renderPreview() {
-            const item = state.queue.find(i => i.id === state.selectedId);
-
-            if (!item) {
-                els.previewEmpty.style.display = 'flex';
-                els.previewContent.style.display = 'none';
-                return;
-            }
-
-            els.previewEmpty.style.display = 'none';
-            els.previewContent.style.display = 'flex';
-            
-            // Header Info
-            els.previewFilename.innerHTML = `<i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i> ${item.file.name}`;
-            els.previewPageCount.textContent = `${item.pageCount || '?'} trang`;
-            
-            // Download Button
-            if (item.status === Status.COMPLETED) {
-                els.downloadBtn.classList.remove('hidden');
-            } else {
-                els.downloadBtn.classList.add('hidden');
-            }
-
-            // Pages
-            els.previewPages.innerHTML = '';
-            
-            if (item.status === Status.ERROR) {
-                 els.previewPages.innerHTML = `
-                    <div class="flex flex-col items-center justify-center pt-20 text-red-500">
-                        <i data-lucide="alert-circle" class="w-12 h-12 mb-2"></i>
-                        <p class="font-medium">Có lỗi xảy ra</p>
-                        <p class="text-sm text-slate-500">${item.errorMessage}</p>
-                    </div>
-                 `;
-            } else if (item.pages.length === 0) {
-                 els.previewPages.innerHTML = `
-                    <div class="flex flex-col items-center justify-center pt-20 text-slate-400">
-                        <i data-lucide="loader-2" class="w-8 h-8 animate-spin mb-2"></i>
-                        <p>Đang chờ xử lý...</p>
-                    </div>
-                 `;
-            } else {
-                item.pages.forEach(page => {
-                    const pageDiv = document.createElement('div');
-                    pageDiv.className = "mb-8 border-b border-dashed border-slate-300 pb-8 last:border-0 bg-white shadow-sm p-8 min-h-[500px]";
-                    
-                    if (page.status === 'processing' || page.status === 'pending') {
-                         pageDiv.innerHTML = `
-                            <div class="animate-pulse space-y-4 max-w-2xl mx-auto pt-10">
-                                <div class="flex justify-between text-xs text-slate-400 mb-4">Đang xử lý Trang ${page.pageNumber}...</div>
-                                <div class="h-4 bg-slate-200 rounded w-3/4 mx-auto"></div>
-                                <div class="h-4 bg-slate-200 rounded w-1/2 mx-auto"></div>
-                                <div class="space-y-3 pt-8">
-                                    <div class="h-3 bg-slate-200 rounded"></div>
-                                    <div class="h-3 bg-slate-200 rounded"></div>
-                                    <div class="h-3 bg-slate-200 rounded w-5/6"></div>
-                                    <div class="h-3 bg-slate-200 rounded w-4/6"></div>
-                                </div>
-                            </div>
-                         `;
-                    } else if (page.status === 'error') {
-                        pageDiv.innerHTML = `<div class="text-red-500 font-medium text-center pt-10">Lỗi xử lý trang ${page.pageNumber}</div>`;
-                    } else {
-                        // Render HTML Content
-                        pageDiv.innerHTML = page.htmlContent;
-                    }
-                    els.previewPages.appendChild(pageDiv);
-                });
-            }
-            lucide.createIcons({ root: els.previewContent });
-        }
-
-        // --- QUEUE & AI LOGIC ---
-
-        function updateItem(id, updates) {
-            state.queue = state.queue.map(item => item.id === id ? { ...item, ...updates } : item);
-            // Optimization: Only re-render if visible
-            renderQueue();
-            if (state.selectedId === id) renderPreview();
-        }
-
-        async function processQueue() {
-            if (state.isProcessing) return;
-
-            // Find next queued item
-            const nextItem = state.queue.find(i => i.status === Status.QUEUED);
-            if (!nextItem) return;
-
-            state.isProcessing = true;
-            
-            // Check API Key (Check local var OR window.aistudio)
-            let currentKey = state.apiKey;
-            if (!currentKey && window.aistudio) {
-                try {
-                     const hasKey = await window.aistudio.hasSelectedApiKey();
-                     if (hasKey) {
-                        // We rely on the extension logic if implied, but here we require strict input for Vanilla demo
-                     }
-                } catch(e) {}
-            }
-
-            if (!currentKey) {
-                updateItem(nextItem.id, { status: Status.ERROR, errorMessage: 'Vui lòng nhập API Key', progress: 0 });
-                state.isProcessing = false;
-                alert("Vui lòng nhập Google Gemini API Key để bắt đầu.");
-                return;
-            }
-
-            try {
-                // Step 1: Initialize PDF
-                updateItem(nextItem.id, { status: Status.PROCESSING_PDF, progress: 5 });
-                
-                const arrayBuffer = await nextItem.file.arrayBuffer();
-                const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                const pageCount = pdfDoc.numPages;
-
-                const pages = Array.from({ length: pageCount }, (_, i) => ({
-                    pageNumber: i + 1,
-                    status: 'pending',
-                    htmlContent: '',
-                    imageUrl: ''
-                }));
-
-                updateItem(nextItem.id, { status: Status.ANALYZING_AI, pageCount, pages });
-
-                // Step 2: Initialize AI
-                const ai = new GoogleGenAI({ apiKey: currentKey });
-                const model = 'gemini-2.5-flash'; 
-
-                // Step 3: Process Pages sequentially
-                for (let i = 0; i < pageCount; i++) {
-                    const page = pages[i];
-                    page.status = 'processing';
-                    updateItem(nextItem.id, { pages: [...pages] });
-
-                    try {
-                        // 3a. Render to Image
-                        const pdfPage = await pdfDoc.getPage(page.pageNumber);
-                        const scale = 2.0; 
-                        const viewport = pdfPage.getViewport({ scale });
-                        
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-                        
-                        await pdfPage.render({ canvasContext: context, viewport }).promise;
-                        
-                        const base64Image = canvas.toDataURL('image/jpeg', 0.95);
-                        const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-
-                        // 3b. Call Gemini
-                        const prompt = `
-                        Bạn là một chuyên gia soạn thảo văn bản hành chính Việt Nam theo Nghị định 30/2020/NĐ-CP.
-                        Nhiệm vụ: Chuyển đổi hình ảnh văn bản này thành mã HTML với độ chính xác cao nhất về nội dung và thể thức.
-
-                        YÊU CẦU TUYỆT ĐỐI VỀ HÌNH THỨC TRÌNH BÀY:
-                        1.  **Quốc hiệu (Top Right):**
-                            -   Dòng 1: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM" (Chữ in hoa, đứng, đậm, cỡ chữ 13pt).
-                            -   Dòng 2: "Độc lập - Tự do - Hạnh phúc" (Chữ in thường/Title Case, đứng, đậm, cỡ chữ 14pt).
-                            -   Canh giữa 2 dòng này với nhau. Đặt toàn bộ khối này ở góc phải header (hoặc ô phải nếu dùng table).
-
-                        2.  **Định dạng chung:**
-                            -   Font chữ: 'Times New Roman'.
-                            -   Cỡ chữ mặc định nội dung: 13pt.
-                            -   Canh lề: Sử dụng chính xác style="text-align: left|center|right|justify".
-
-                        3.  **Kỹ thuật Layout:**
-                            -   Sử dụng thẻ <table> (border="0" width="100%") để chia cột phần Header (Tên cơ quan bên trái - Quốc hiệu bên phải) và Footer (Nơi nhận bên trái - Chữ ký bên phải).
-                            -   Không sử dụng float hay flexbox phức tạp vì không tương thích tốt với Word. Dùng Table là tốt nhất.
-
-                        4.  **Kết quả:**
-                            -   Chỉ trả về mã HTML thô nằm trong thẻ <body>.
-                            -   Không bao gồm thẻ \`\`\`html hay markdown.
-                        `;
-
-                        const genModel = ai.getGenerativeModel({ model: model });
-                        const result = await genModel.generateContent({
-                            contents: [{
-                                role: 'user',
-                                parts: [
-                                    { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-                                    { text: prompt }
-                                ]
-                            }]
-                        });
-                        
-                        let html = result.response.text();
-                        html = html.replace(/```html/g, '').replace(/```/g, '').trim();
-
-                        page.htmlContent = html;
-                        page.status = 'done';
-
-                    } catch (err) {
-                        console.error(`Page ${i+1} Error:`, err);
-                        page.status = 'error';
-                        page.htmlContent = `<p style="color:red; font-family: sans-serif;">[Lỗi xử lý trang ${page.pageNumber}: ${err.message}]</p>`;
-                    }
-
-                    // Update Progress
-                    const currentProgress = ((i + 1) / pageCount) * 100;
-                    updateItem(nextItem.id, { 
-                        progress: currentProgress,
-                        pages: [...pages] 
-                    });
-                }
-
-                updateItem(nextItem.id, { status: Status.COMPLETED, progress: 100 });
-
-            } catch (error) {
-                console.error("File Error:", error);
-                updateItem(nextItem.id, { status: Status.ERROR, errorMessage: error.message || 'Lỗi không xác định' });
-            } finally {
-                state.isProcessing = false;
-                processQueue(); // Trigger next file
-            }
-        }
-
-        // --- EXPORT FUNCTION ---
-
-        function downloadAsDoc(item) {
-            const content = item.pages.map(p => p.htmlContent).join('<br style="page-break-before: always;">');
-            
-            const fullHtml = `
-                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-                <head>
-                    <meta charset="utf-8">
-                    <title>${item.file.name}</title>
-                    <style>
-                        /* PAGE SETUP */
-                        @page {
-                            size: 21cm 29.7cm;
-                            margin: 2cm 2cm 2cm 3cm; /* Top Right Bottom Left */
-                            mso-page-orientation: portrait;
-                        }
-                        @page Section1 {
-                            size: 21cm 29.7cm;
-                            margin: 2cm 2cm 2cm 3cm;
-                            mso-header-margin: 1.25cm;
-                            mso-footer-margin: 1.25cm;
-                            mso-paper-source: 0;
-                        }
-                        div.Section1 { page: Section1; }
-
-                        /* TYPOGRAPHY */
-                        body {
-                            font-family: 'Times New Roman', serif;
-                            font-size: 13pt; /* Requested size */
-                            line-height: 1.5;
-                        }
-                        
-                        /* TABLE RESET for Layout */
-                        table { border-collapse: collapse; border: none; width: 100%; }
-                        td { vertical-align: top; padding: 0; }
-                        
-                        /* COMMON CLASSES */
-                        .page-break { page-break-before: always; }
-                        p { margin: 0; padding: 5px 0; }
-                    </style>
-                </head>
-                <body>
-                    <div class="Section1">
-                        ${content}
-                    </div>
-                </body>
-                </html>
-            `;
-            
-            const blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = item.file.name.replace('.pdf', '.doc');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
-    </script>
-</body>
-</html>
+});
+function showPreview(file) {
+previewEmpty.classList.add('hidden');
+previewContainer.classList.remove('hidden');
+document.getElementById('preview-title').innerText = file.name;
+document.getElementById('preview-content').innerText = "Đang tải nội dung PDF... (Hệ thống AI sẽ xử lý file này)";
+// Ở đây bạn có thể thêm logic PDF.js để đọc nội dung thực tế
+}
