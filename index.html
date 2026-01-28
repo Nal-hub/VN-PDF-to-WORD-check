@@ -1,78 +1,84 @@
-VN PDF to Word - AI Powered
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VN PDF to Word - AI Powered</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .document-preview { font-family: 'Times New Roman', serif; }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
 
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">VN PDF to Word</h1>
+                <p class="text-sm text-gray-500">AI Powered by Gemini</p>
+            </div>
+            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Lấy Key</button>
+        </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input type="file" id="file-input" class="hidden" accept=".pdf" multiple>
+                <label for="file-input" class="cursor-pointer">
+                    <div class="flex flex-col items-center">
+                        <i data-lucide="file-up" class="w-12 h-12 text-blue-500 mb-2"></i>
+                        <span class="font-medium text-blue-600">Thêm file PDF</span>
+                    </div>
+                </label>
+                <div id="file-list" class="mt-4 text-left space-y-2">
+                    <p class="text-sm text-gray-400 italic">Chưa có file nào được chọn</p>
+                </div>
+            </div>
 
+            <div class="bg-gray-50 border rounded-lg p-4 min-h-[200px]">
+                <div id="preview-empty" class="h-full flex items-center justify-center text-gray-400">
+                    Chọn file để xem nội dung
+                </div>
+                <div id="preview-container" class="hidden">
+                    <h3 id="preview-title" class="font-bold border-b pb-2 mb-2"></h3>
+                    <div id="preview-content" class="document-preview text-sm text-gray-700 italic"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-body { font-family: 'Inter', sans-serif; }
-.document-preview { font-family: 'Times New Roman', serif; }
+    <script>
+        // 1. Khởi tạo Icons
+        lucide.createIcons();
 
+        // 2. Xử lý File Input
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const previewContainer = document.getElementById('preview-container');
+        const previewEmpty = document.getElementById('preview-empty');
 
+        fileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                fileList.innerHTML = ''; // Xóa trạng thái trống
+                Array.from(files).forEach(file => {
+                    const div = document.createElement('div');
+                    div.className = "p-3 bg-white border rounded-lg cursor-pointer hover:border-blue-500 transition-all shadow-sm";
+                    div.innerHTML = `<p class="text-sm font-medium truncate">${file.name}</p>`;
+                    div.onclick = () => showPreview(file);
+                    fileList.appendChild(div);
+                });
+            }
+        });
 
-
-
-
-
-
-
-VN PDF to Word
-AI Powered by Gemini
-
-
-
-
-Lấy Key
-
-
-
-
-
-
-
-
-
-Thêm file PDF
-
-
-
-Chưa có file nào được chọn
-
-
-
-
-
-Chọn file để xem nội dung
-
-
-
-
-
-
-
-
-// 1. Khởi tạo Icons
-lucide.createIcons();
-// 2. Xử lý File Input
-const fileInput = document.getElementById('file-input');
-const fileList = document.getElementById('file-list');
-const previewContainer = document.getElementById('preview-container');
-const previewEmpty = document.getElementById('preview-empty');
-fileInput.addEventListener('change', function(e) {
-const files = e.target.files;
-if (files.length > 0) {
-fileList.innerHTML = ''; // Xóa trạng thái trống
-Array.from(files).forEach(file => {
-const div = document.createElement('div');
-div.className = "p-3 bg-slate-50 border rounded-lg cursor-pointer hover:border-blue-500 transition-all";
-div.innerHTML = <p class="text-sm font-medium truncate">${file.name}</p>;
-div.onclick = () => showPreview(file);
-fileList.appendChild(div);
-});
-}
-});
-function showPreview(file) {
-previewEmpty.classList.add('hidden');
-previewContainer.classList.remove('hidden');
-document.getElementById('preview-title').innerText = file.name;
-document.getElementById('preview-content').innerText = "Đang tải nội dung PDF... (Hệ thống AI sẽ xử lý file này)";
-// Ở đây bạn có thể thêm logic PDF.js để đọc nội dung thực tế
-}
+        function showPreview(file) {
+            previewEmpty.classList.add('hidden');
+            previewContainer.classList.remove('hidden');
+            document.getElementById('preview-title').innerText = file.name;
+            document.getElementById('preview-content').innerText = "Đang tải nội dung PDF... (Hệ thống AI sẽ xử lý file này)";
+        }
+    </script>
+</body>
+</html>
