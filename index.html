@@ -2,139 +2,130 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>VN PDF to Word - Fix Lỗi File Trắng</title>
+    <title>Hệ thống OCR PDF sang Word - Bộ Tư Pháp</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
-        .page-preview { 
-            background: white; width: 210mm; min-height: 297mm; 
-            padding: 2.5cm 1.5cm 2cm 3cm; margin: 30px auto; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
-            font-family: "Times New Roman", serif; font-size: 14pt; line-height: 1.5;
-        }
-        .bold { font-weight: bold; }
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+        .preview-box { background: white; width: 210mm; padding: 2cm; margin: 20px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.08); font-family: "Times New Roman", serif; font-size: 14pt; line-height: 1.5; color: #000; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="p-6">
-    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-sm mb-6 border border-slate-200">
-        <h1 class="text-2xl font-bold text-blue-900 mb-2">HỆ THỐNG CHUYỂN ĐỔI CHUẨN ĐỊNH DẠNG</h1>
-        <p class="text-slate-500 text-sm mb-6 underline">Tối ưu cho văn bản hành chính: Font 14, Times New Roman, In đậm mục lục</p>
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border border-slate-200">
+        <h1 class="text-2xl font-black text-blue-900 mb-2 uppercase">Chuyển đổi PDF Scan sang Word</h1>
+        <p class="text-slate-500 text-sm mb-6 underline font-medium">Tự động nhận diện chữ trong ảnh - Giữ định dạng Font 14</p>
         
         <div class="flex items-center gap-4">
-            <input type="file" id="input-pdf" class="hidden" accept=".pdf">
-            <label for="input-pdf" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition">CHỌN FILE PDF</label>
-            <button id="btn-download" class="hidden bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 shadow-lg">TẢI FILE WORD (.DOCX)</button>
+            <input type="file" id="pdf-file" class="hidden" accept=".pdf">
+            <label for="pdf-file" class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold cursor-pointer hover:bg-blue-700 transition flex items-center gap-2">
+                CHỌN FILE PDF
+            </label>
+            <button id="btn-export" class="hidden bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-emerald-700 shadow-lg flex items-center gap-2">
+                TẢI WORD (.DOCX)
+            </button>
         </div>
-        <div id="status" class="mt-4 text-blue-600 font-bold hidden">Đang thu thập dữ liệu... 0%</div>
+
+        <div id="loading" class="hidden mt-6 p-4 bg-blue-50 rounded-2xl flex items-center gap-4 border border-blue-100">
+            <div class="spinner"></div>
+            <span id="load-text" class="text-blue-700 font-bold text-sm italic">Đang dùng AI quét chữ tiếng Việt... 0%</span>
+        </div>
     </div>
 
-    <div id="preview-container"></div>
+    <div id="preview"></div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        
-        let finalDataStore = []; // Nơi lưu trữ dữ liệu để tránh file trắng
+        let extractedData = [];
 
-        document.getElementById('input-pdf').onchange = async (e) => {
+        document.getElementById('pdf-file').onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            const status = document.getElementById('status');
-            const preview = document.getElementById('preview-container');
-            const btn = document.getElementById('btn-download');
+            const loading = document.getElementById('loading');
+            const loadText = document.getElementById('load-text');
+            const preview = document.getElementById('preview');
+            const btn = document.getElementById('btn-export');
 
-            status.classList.remove('hidden');
+            loading.classList.remove('hidden');
             btn.classList.add('hidden');
             preview.innerHTML = "";
-            finalDataStore = [];
+            extractedData = [];
 
             try {
-                const loadingTask = pdfjsLib.getDocument(await file.arrayBuffer());
-                const pdf = await loadingTask.promise;
+                const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+                const scheduler = Tesseract.createScheduler();
+                const worker = await Tesseract.createWorker('vie'); // Ngôn ngữ Tiếng Việt
+                scheduler.addWorker(worker);
 
                 for (let i = 1; i <= pdf.numPages; i++) {
-                    status.innerText = `Đang trích xuất trang ${i}/${pdf.numPages}...`;
+                    loadText.innerText = `Đang quét AI trang ${i}/${pdf.numPages}... (Vui lòng đợi)`;
                     const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
+                    const viewport = page.getViewport({ scale: 2.0 }); // Tăng độ phân giải để quét chuẩn
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
                     
-                    // Sắp xếp tọa độ X-Y để giữ định dạng Quốc hiệu/Tiêu ngữ
-                    const items = textContent.items.sort((a, b) => {
-                        if (Math.abs(a.transform[5] - b.transform[5]) < 5) return a.transform[4] - b.transform[4];
-                        return b.transform[5] - a.transform[5];
-                    });
+                    // Thực hiện OCR nhận diện chữ
+                    const { data: { lines } } = await scheduler.addJob('recognize', canvas);
+                    
+                    const pageContent = lines.map(line => ({
+                        text: line.text.trim(),
+                        isBold: line.text.trim() === line.text.trim().toUpperCase() && line.text.length > 5,
+                        confidence: line.confidence
+                    }));
 
-                    let lastY = -1;
-                    let pageLines = [];
-                    let currentLine = [];
+                    extractedData.push(pageContent);
 
-                    items.forEach(item => {
-                        if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
-                            pageLines.push(currentLine);
-                            currentLine = [];
-                        }
-                        currentLine.push({
-                            text: item.str,
-                            // Tự động nhận diện in đậm dựa trên font name hoặc viết hoa toàn bộ
-                            isBold: item.fontName.toLowerCase().includes('bold') || (item.str === item.str.toUpperCase() && item.str.length > 5)
-                        });
-                        lastY = item.transform[5];
-                    });
-                    pageLines.push(currentLine);
-                    finalDataStore.push(pageLines);
-
-                    // Hiển thị trực tiếp lên web để kiểm tra
-                    const pageDiv = document.createElement('div');
-                    pageDiv.className = "page-preview";
-                    pageDiv.innerHTML = pageLines.map(line => {
-                        const content = line.map(c => `<span class="${c.isBold ? 'bold' : ''}">${c.text}</span>`).join(' ');
-                        return `<p style="min-height:1.2em">${content}</p>`;
-                    }).join('');
-                    preview.appendChild(pageDiv);
+                    // Hiển thị xem trước
+                    const div = document.createElement('div');
+                    div.className = "preview-box";
+                    div.innerHTML = pageContent.map(l => `<p style="min-height:1.2em; font-weight:${l.isBold ? 'bold' : 'normal'}">${l.text}</p>`).join('');
+                    preview.appendChild(div);
                 }
 
-                status.innerText = "✅ Đã thu thập đủ dữ liệu. Nhấn nút bên dưới để tải Word!";
+                await scheduler.terminate();
+                loadText.innerText = "✅ Đã quét xong! Nội dung đã sẵn sàng.";
                 btn.classList.remove('hidden');
-
             } catch (err) {
-                status.innerText = "❌ Lỗi: " + err.message;
+                alert("Lỗi OCR: " + err.message);
+                console.error(err);
             }
         };
 
-        document.getElementById('btn-download').onclick = async () => {
+        document.getElementById('btn-export').onclick = async () => {
             const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx;
-
-            const sections = finalDataStore.map(pageLines => ({
-                properties: { 
-                    page: { margin: { top: 1134, right: 850, bottom: 1134, left: 1700 } } // Lề chuẩn: Trái 3cm, Phải 1.5cm
-                },
+            
+            const sections = extractedData.map(pageLines => ({
+                properties: { page: { margin: { top: 1134, left: 1700, bottom: 1134, right: 850 } } },
                 children: pageLines.map(line => {
-                    const fullText = line.map(c => c.text).join(" ");
-                    let alignment = AlignmentType.LEFT;
-
-                    // Căn giữa cho Quốc hiệu, Tiêu ngữ, Tên kế hoạch
-                    if (fullText.includes("CỘNG HÒA") || fullText.includes("KẾ HOẠCH") || fullText.includes("Độc lập")) {
-                        alignment = AlignmentType.CENTER;
+                    let align = AlignmentType.LEFT;
+                    if (line.text.includes("CỘNG HÒA") || line.text.includes("KẾ HOẠCH") || line.text.includes("Độc lập")) {
+                        align = AlignmentType.CENTER;
                     }
 
                     return new Paragraph({
-                        alignment: alignment,
-                        children: line.map(chunk => new TextRun({
-                            text: chunk.text + " ",
-                            bold: chunk.isBold,
+                        alignment: align,
+                        children: [new TextRun({
+                            text: line.text,
+                            bold: line.isBold,
                             font: "Times New Roman",
-                            size: 28, // 28 half-points = 14pt
-                        })),
+                            size: 28 // 14pt
+                        })],
                         spacing: { line: 360, before: 120 }
                     });
                 })
             }));
 
-            const doc = new Document({ sections });
-            const blob = await Packer.toBlob(doc);
-            saveAs(blob, "Van_Ban_Hanh_Chinh_Chuan.docx");
+            const blob = await Packer.toBlob(new Document({ sections }));
+            saveAs(blob, "Ket_Qua_OCR_Chinh_Xac.docx");
         };
     </script>
 </body>
