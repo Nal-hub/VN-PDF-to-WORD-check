@@ -2,114 +2,113 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hệ thống OCR PDF sang Word - Bộ Tư Pháp</title>
+    <title>Hệ thống PDF to Word - Bộ Tư Pháp (Fix OCR)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; }
-        .preview-box { background: white; width: 210mm; padding: 2cm; margin: 20px auto; box-shadow: 0 4px 20px rgba(0,0,0,0.08); font-family: "Times New Roman", serif; font-size: 14pt; line-height: 1.5; color: #000; }
-        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        body { font-family: 'Times New Roman', Times, serif; background: #f4f7f6; }
+        .document-page { background: white; width: 210mm; padding: 2cm 1.5cm 2cm 3cm; margin: 20px auto; box-shadow: 0 5px 15px rgba(0,0,0,0.1); font-size: 14pt; line-height: 1.5; color: black; }
+        .bold { font-weight: bold; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #1d4ed8; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="p-6">
-    <div class="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border border-slate-200">
-        <h1 class="text-2xl font-black text-blue-900 mb-2 uppercase">Chuyển đổi PDF Scan sang Word</h1>
-        <p class="text-slate-500 text-sm mb-6 underline font-medium">Tự động nhận diện chữ trong ảnh - Giữ định dạng Font 14</p>
+<body class="p-5">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
+        <h1 class="text-2xl font-bold text-blue-800 mb-2">CHUYỂN ĐỔI PDF SCAN (AI OCR)</h1>
+        <p class="text-gray-500 mb-6">Định dạng: Font 14, Times New Roman, Lề trái 3cm</p>
         
-        <div class="flex items-center gap-4">
-            <input type="file" id="pdf-file" class="hidden" accept=".pdf">
-            <label for="pdf-file" class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold cursor-pointer hover:bg-blue-700 transition flex items-center gap-2">
-                CHỌN FILE PDF
-            </label>
-            <button id="btn-export" class="hidden bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-emerald-700 shadow-lg flex items-center gap-2">
-                TẢI WORD (.DOCX)
-            </button>
+        <div class="flex flex-wrap gap-4">
+            <input type="file" id="file-input" class="hidden" accept=".pdf">
+            <label for="file-input" class="bg-blue-700 text-white px-8 py-3 rounded-lg font-bold cursor-pointer hover:bg-blue-800 transition">CHỌN FILE PDF</label>
+            <button id="btn-word" class="hidden bg-green-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-800 transition">TẢI FILE WORD (.DOCX)</button>
         </div>
 
-        <div id="loading" class="hidden mt-6 p-4 bg-blue-50 rounded-2xl flex items-center gap-4 border border-blue-100">
-            <div class="spinner"></div>
-            <span id="load-text" class="text-blue-700 font-bold text-sm italic">Đang dùng AI quét chữ tiếng Việt... 0%</span>
+        <div id="status-box" class="hidden mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-4">
+            <div class="loader"></div>
+            <span id="status-text" class="text-blue-800 font-medium">Đang khởi tạo AI...</span>
         </div>
     </div>
 
-    <div id="preview"></div>
+    <div id="preview-area"></div>
 
     <script>
+        // Thiết lập PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        let extractedData = [];
+        
+        let allPagesData = [];
 
-        document.getElementById('pdf-file').onchange = async (e) => {
+        document.getElementById('file-input').onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            const loading = document.getElementById('loading');
-            const loadText = document.getElementById('load-text');
-            const preview = document.getElementById('preview');
-            const btn = document.getElementById('btn-export');
+            const statusBox = document.getElementById('status-box');
+            const statusText = document.getElementById('status-text');
+            const preview = document.getElementById('preview-area');
+            const btnWord = document.getElementById('btn-word');
 
-            loading.classList.remove('hidden');
-            btn.classList.add('hidden');
+            statusBox.classList.remove('hidden');
             preview.innerHTML = "";
-            extractedData = [];
+            btnWord.classList.add('hidden');
+            allPagesData = [];
 
             try {
                 const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
-                const scheduler = Tesseract.createScheduler();
-                const worker = await Tesseract.createWorker('vie'); // Ngôn ngữ Tiếng Việt
-                scheduler.addWorker(worker);
-
+                
                 for (let i = 1; i <= pdf.numPages; i++) {
-                    loadText.innerText = `Đang quét AI trang ${i}/${pdf.numPages}... (Vui lòng đợi)`;
+                    statusText.innerText = `AI đang đọc trang ${i}/${pdf.numPages}...`;
+                    
                     const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 2.0 }); // Tăng độ phân giải để quét chuẩn
+                    const viewport = page.getViewport({ scale: 2.0 });
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
 
                     await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                    
-                    // Thực hiện OCR nhận diện chữ
-                    const { data: { lines } } = await scheduler.addJob('recognize', canvas);
-                    
-                    const pageContent = lines.map(line => ({
-                        text: line.text.trim(),
-                        isBold: line.text.trim() === line.text.trim().toUpperCase() && line.text.length > 5,
-                        confidence: line.confidence
+
+                    // Sử dụng Tesseract với xử lý lỗi
+                    if (typeof Tesseract === 'undefined') {
+                        throw new Error("Thư viện AI chưa tải xong. Vui lòng F5 lại trang.");
+                    }
+
+                    const result = await Tesseract.recognize(canvas, 'vie', {
+                        logger: m => { if(m.status === 'recognizing text') statusText.innerText = `Đang quét chữ trang ${i}: ${Math.round(m.progress * 100)}%`; }
+                    });
+
+                    const lines = result.data.lines.map(l => ({
+                        text: l.text.trim(),
+                        isBold: l.text === l.text.toUpperCase() && l.text.length > 4
                     }));
 
-                    extractedData.push(pageContent);
+                    allPagesData.push(lines);
 
-                    // Hiển thị xem trước
-                    const div = document.createElement('div');
-                    div.className = "preview-box";
-                    div.innerHTML = pageContent.map(l => `<p style="min-height:1.2em; font-weight:${l.isBold ? 'bold' : 'normal'}">${l.text}</p>`).join('');
-                    preview.appendChild(div);
+                    // Hiển thị xem trước ngay lập tức
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = "document-page";
+                    pageDiv.innerHTML = lines.map(l => `<p style="${l.isBold ? 'font-weight:bold' : ''}">${l.text}</p>`).join('');
+                    preview.appendChild(pageDiv);
                 }
 
-                await scheduler.terminate();
-                loadText.innerText = "✅ Đã quét xong! Nội dung đã sẵn sàng.";
-                btn.classList.remove('hidden');
+                statusText.innerText = "✅ Hoàn tất! Dữ liệu đã sẵn sàng để xuất Word.";
+                btnWord.classList.remove('hidden');
             } catch (err) {
-                alert("Lỗi OCR: " + err.message);
-                console.error(err);
+                alert("Lỗi: " + err.message);
+                statusBox.classList.add('hidden');
             }
         };
 
-        document.getElementById('btn-export').onclick = async () => {
+        document.getElementById('btn-word').onclick = async () => {
             const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx;
             
-            const sections = extractedData.map(pageLines => ({
+            const sections = allPagesData.map(lines => ({
                 properties: { page: { margin: { top: 1134, left: 1700, bottom: 1134, right: 850 } } },
-                children: pageLines.map(line => {
+                children: lines.map(line => {
                     let align = AlignmentType.LEFT;
-                    if (line.text.includes("CỘNG HÒA") || line.text.includes("KẾ HOẠCH") || line.text.includes("Độc lập")) {
-                        align = AlignmentType.CENTER;
-                    }
+                    if (line.text.includes("CỘNG HÒA") || line.text.includes("KẾ HOẠCH") || line.text.includes("Độc lập")) align = AlignmentType.CENTER;
 
                     return new Paragraph({
                         alignment: align,
@@ -117,7 +116,7 @@
                             text: line.text,
                             bold: line.isBold,
                             font: "Times New Roman",
-                            size: 28 // 14pt
+                            size: 28 // Cỡ chữ 14pt
                         })],
                         spacing: { line: 360, before: 120 }
                     });
@@ -125,7 +124,7 @@
             }));
 
             const blob = await Packer.toBlob(new Document({ sections }));
-            saveAs(blob, "Ket_Qua_OCR_Chinh_Xac.docx");
+            saveAs(blob, "Van_Ban_Tu_Phap_Chuan.docx");
         };
     </script>
 </body>
