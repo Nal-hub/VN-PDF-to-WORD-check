@@ -2,129 +2,139 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>VN PDF to Word - Chuẩn Văn Bản Hành Chính</title>
+    <title>VN PDF to Word - Fix Lỗi File Trắng</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background: #f1f5f9; }
-        .document-preview { 
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+        .page-preview { 
             background: white; width: 210mm; min-height: 297mm; 
-            padding: 2.5cm 1.5cm 2cm 3cm; margin: 20px auto; 
-            font-family: "Times New Roman", serif; font-size: 14pt;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1); line-height: 1.5;
+            padding: 2.5cm 1.5cm 2cm 3cm; margin: 30px auto; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.1); 
+            font-family: "Times New Roman", serif; font-size: 14pt; line-height: 1.5;
         }
         .bold { font-weight: bold; }
-        .uppercase { text-transform: uppercase; }
     </style>
 </head>
-<body class="p-8">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-200">
-        <h1 class="text-xl font-black text-blue-800 mb-4">CHUYỂN ĐỔI PDF CHUẨN ĐỊNH DẠNG (FONT 14)</h1>
-        <div class="flex gap-4">
-            <input type="file" id="pdf-file" class="hidden" accept=".pdf">
-            <label for="pdf-file" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition shadow-lg">Tải PDF Lên</label>
-            <button id="btn-word" class="hidden bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg">Xuất File Word (.docx)</button>
+<body class="p-6">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-sm mb-6 border border-slate-200">
+        <h1 class="text-2xl font-bold text-blue-900 mb-2">HỆ THỐNG CHUYỂN ĐỔI CHUẨN ĐỊNH DẠNG</h1>
+        <p class="text-slate-500 text-sm mb-6 underline">Tối ưu cho văn bản hành chính: Font 14, Times New Roman, In đậm mục lục</p>
+        
+        <div class="flex items-center gap-4">
+            <input type="file" id="input-pdf" class="hidden" accept=".pdf">
+            <label for="input-pdf" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition">CHỌN FILE PDF</label>
+            <button id="btn-download" class="hidden bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-emerald-700 shadow-lg">TẢI FILE WORD (.DOCX)</button>
         </div>
-        <p id="status" class="mt-4 text-sm font-medium text-blue-600 hidden"></p>
+        <div id="status" class="mt-4 text-blue-600 font-bold hidden">Đang thu thập dữ liệu... 0%</div>
     </div>
 
-    <div id="preview"></div>
+    <div id="preview-container"></div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        let structuredPages = [];
+        
+        let finalDataStore = []; // Nơi lưu trữ dữ liệu để tránh file trắng
 
-        document.getElementById('pdf-input')?.remove(); // Dọn dẹp id cũ nếu có
-        document.getElementById('pdf-file').onchange = async (e) => {
+        document.getElementById('input-pdf').onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
             const status = document.getElementById('status');
-            const preview = document.getElementById('preview');
-            status.innerText = "🔄 Đang trích xuất định dạng in đậm, in hoa...";
+            const preview = document.getElementById('preview-container');
+            const btn = document.getElementById('btn-download');
+
             status.classList.remove('hidden');
+            btn.classList.add('hidden');
             preview.innerHTML = "";
-            structuredPages = [];
+            finalDataStore = [];
 
-            const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+            try {
+                const loadingTask = pdfjsLib.getDocument(await file.arrayBuffer());
+                const pdf = await loadingTask.promise;
 
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                
-                // Thuật toán quét tọa độ cực nhanh để không bị mất dữ liệu
-                const items = textContent.items.sort((a, b) => {
-                    if (Math.abs(a.transform[5] - b.transform[5]) < 5) return a.transform[4] - b.transform[4];
-                    return b.transform[5] - a.transform[5];
-                });
-
-                let lastY = -1;
-                let pageData = [];
-                let currentLine = [];
-
-                items.forEach(item => {
-                    if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
-                        pageData.push(currentLine);
-                        currentLine = [];
-                    }
-                    // Lưu cả nội dung và thuộc tính định dạng
-                    currentLine.push({
-                        text: item.str,
-                        bold: item.fontName.toLowerCase().includes('bold') || item.str === item.str.toUpperCase() && item.str.length > 3,
-                        x: item.transform[4]
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    status.innerText = `Đang trích xuất trang ${i}/${pdf.numPages}...`;
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    
+                    // Sắp xếp tọa độ X-Y để giữ định dạng Quốc hiệu/Tiêu ngữ
+                    const items = textContent.items.sort((a, b) => {
+                        if (Math.abs(a.transform[5] - b.transform[5]) < 5) return a.transform[4] - b.transform[4];
+                        return b.transform[5] - a.transform[5];
                     });
-                    lastY = item.transform[5];
-                });
-                pageData.push(currentLine);
-                structuredPages.push(pageData);
 
-                // Dựng Preview cho người dùng xem trước
-                const div = document.createElement('div');
-                div.className = "document-preview";
-                div.innerHTML = pageData.map(line => {
-                    const lineText = line.map(chunk => `<span class="${chunk.bold ? 'bold' : ''}">${chunk.text}</span>`).join(' ');
-                    return `<p style="min-height:1.2em">${lineText}</p>`;
-                }).join('');
-                preview.appendChild(div);
+                    let lastY = -1;
+                    let pageLines = [];
+                    let currentLine = [];
+
+                    items.forEach(item => {
+                        if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
+                            pageLines.push(currentLine);
+                            currentLine = [];
+                        }
+                        currentLine.push({
+                            text: item.str,
+                            // Tự động nhận diện in đậm dựa trên font name hoặc viết hoa toàn bộ
+                            isBold: item.fontName.toLowerCase().includes('bold') || (item.str === item.str.toUpperCase() && item.str.length > 5)
+                        });
+                        lastY = item.transform[5];
+                    });
+                    pageLines.push(currentLine);
+                    finalDataStore.push(pageLines);
+
+                    // Hiển thị trực tiếp lên web để kiểm tra
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = "page-preview";
+                    pageDiv.innerHTML = pageLines.map(line => {
+                        const content = line.map(c => `<span class="${c.isBold ? 'bold' : ''}">${c.text}</span>`).join(' ');
+                        return `<p style="min-height:1.2em">${content}</p>`;
+                    }).join('');
+                    preview.appendChild(pageDiv);
+                }
+
+                status.innerText = "✅ Đã thu thập đủ dữ liệu. Nhấn nút bên dưới để tải Word!";
+                btn.classList.remove('hidden');
+
+            } catch (err) {
+                status.innerText = "❌ Lỗi: " + err.message;
             }
-            
-            status.innerText = "✅ Đã xử lý xong định dạng!";
-            document.getElementById('btn-word').classList.remove('hidden');
         };
 
-        document.getElementById('btn-word').onclick = async () => {
+        document.getElementById('btn-download').onclick = async () => {
             const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx;
-            
-            const sections = structuredPages.map(page => ({
+
+            const sections = finalDataStore.map(pageLines => ({
                 properties: { 
-                    page: { margin: { top: 1134, left: 1700, bottom: 1134, right: 850 } } 
+                    page: { margin: { top: 1134, right: 850, bottom: 1134, left: 1700 } } // Lề chuẩn: Trái 3cm, Phải 1.5cm
                 },
-                children: page.map(line => {
-                    let fullLineText = line.map(c => c.text).join(" ");
-                    let align = AlignmentType.LEFT;
-                    
+                children: pageLines.map(line => {
+                    const fullText = line.map(c => c.text).join(" ");
+                    let alignment = AlignmentType.LEFT;
+
                     // Căn giữa cho Quốc hiệu, Tiêu ngữ, Tên kế hoạch
-                    if (fullLineText.includes("CỘNG HÒA") || fullLineText.includes("KẾ HOẠCH") || fullLineText.includes("Độc lập")) {
-                        align = AlignmentType.CENTER;
+                    if (fullText.includes("CỘNG HÒA") || fullText.includes("KẾ HOẠCH") || fullText.includes("Độc lập")) {
+                        alignment = AlignmentType.CENTER;
                     }
 
                     return new Paragraph({
-                        alignment: align,
+                        alignment: alignment,
                         children: line.map(chunk => new TextRun({
                             text: chunk.text + " ",
-                            bold: chunk.bold,
+                            bold: chunk.isBold,
                             font: "Times New Roman",
-                            size: 28, // Size 28 trong docx.js = 14pt trong Word
+                            size: 28, // 28 half-points = 14pt
                         })),
-                        spacing: { line: 360, before: 100 }
+                        spacing: { line: 360, before: 120 }
                     });
                 })
             }));
 
-            const blob = await Packer.toBlob(new Document({ sections }));
-            saveAs(blob, "Ke_Hoach_Bo_Tu_Phap_Chuan.docx");
+            const doc = new Document({ sections });
+            const blob = await Packer.toBlob(doc);
+            saveAs(blob, "Van_Ban_Hanh_Chinh_Chuan.docx");
         };
     </script>
 </body>
