@@ -2,119 +2,135 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Chuyển đổi PDF sang Word - Bộ Tư Pháp</title>
+    <title>VN PDF to Word - Fix Trắng Trang</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .pdf-page { 
-            background: white; 
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); 
-            margin: 20px auto; 
-            padding: 2cm; 
-            width: 210mm; 
-            min-height: 297mm;
-            font-family: "Times New Roman", Times, serif;
-            font-size: 13pt;
-            line-height: 1.3;
+        body { font-family: 'Inter', sans-serif; background: #f1f5f9; }
+        .document-page { 
+            background: white; width: 210mm; min-height: 297mm; 
+            padding: 2.5cm 1.5cm; margin: 20px auto; 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            font-family: "Times New Roman", serif; font-size: 13pt; line-height: 1.4;
         }
     </style>
 </head>
-<body class="p-5 md:p-10">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-sm border mb-6">
-        <h1 class="text-xl font-bold text-slate-800 mb-4">HỆ THỐNG CHUYỂN ĐỔI VĂN BẢN CHUẨN</h1>
-        <div class="flex gap-4">
-            <input type="file" id="pdf-file" class="hidden" accept=".pdf">
-            <label for="pdf-file" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold cursor-pointer hover:bg-blue-700 transition">
-                Chọn file PDF
+<body class="p-6">
+
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow-md border mb-6">
+        <h1 class="text-xl font-bold text-slate-800 mb-4 uppercase">Chuyển đổi PDF Bộ Tư Pháp</h1>
+        <div class="flex gap-3">
+            <input type="file" id="pdf-input" class="hidden" accept=".pdf">
+            <label for="pdf-input" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold cursor-pointer hover:bg-blue-700 transition">
+                TẢI PDF LÊN
             </label>
-            <button id="btn-export" class="hidden bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 transition">
-                Tải file Word (.docx)
+            <button id="btn-export" class="hidden bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition">
+                XUẤT FILE WORD
             </button>
         </div>
-        <div id="msg" class="mt-4 text-sm text-blue-600 hidden">Đang xử lý tọa độ văn bản...</div>
+        <p id="status" class="mt-4 text-sm font-medium text-blue-500 hidden italic"></p>
     </div>
 
     <div id="preview-area"></div>
 
     <script>
-        // Cấu hình worker để không bị lỗi trắng trang
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
-        let allTextData = [];
+        // Cấu hình Worker từ link cực kỳ ổn định
+        const pdfjs = window['pdfjs-dist/build/pdf'];
+        pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        document.getElementById('pdf-file').onchange = async (e) => {
+        let finalDocStructure = [];
+
+        document.getElementById('pdf-input').onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            document.getElementById('msg').classList.remove('hidden');
+            const status = document.getElementById('status');
             const preview = document.getElementById('preview-area');
+            
+            status.innerText = "🔄 Đang phân tích dữ liệu văn bản...";
+            status.classList.remove('hidden');
             preview.innerHTML = "";
-            allTextData = [];
+            finalDocStructure = [];
 
             try {
-                const pdf = await pdfjsLib.getDocument(await file.arrayBuffer()).promise;
+                const arrayBuffer = await file.arrayBuffer();
+                const loadingTask = pdfjs.getDocument({data: arrayBuffer});
+                const pdf = await loadingTask.promise;
                 
+                if (pdf.numPages === 0) {
+                    alert("File PDF này không có trang nào!");
+                    return;
+                }
+
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
-                    const content = await page.getTextContent();
+                    const textContent = await page.getTextContent();
                     
-                    // Sắp xếp theo dòng (Y) và cột (X) để giữ Quốc hiệu/Tiêu ngữ chuẩn 
-                    const sortedItems = content.items.sort((a, b) => {
+                    if (textContent.items.length === 0) {
+                        alert(`Trang ${i} không chứa văn bản (có thể là file scan dạng ảnh).`);
+                        continue;
+                    }
+
+                    // Thuật toán sắp xếp theo dòng (Y) và cột (X)
+                    const items = textContent.items.sort((a, b) => {
                         if (Math.abs(a.transform[5] - b.transform[5]) < 5) return a.transform[4] - b.transform[4];
                         return b.transform[5] - a.transform[5];
                     });
 
                     let lastY = -1;
-                    let lines = [];
+                    let pageLines = [];
                     let curLine = "";
 
-                    sortedItems.forEach(item => {
+                    items.forEach(item => {
                         if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
-                            lines.push(curLine);
+                            pageLines.push(curLine.trim());
                             curLine = "";
                         }
                         curLine += item.str + " ";
                         lastY = item.transform[5];
                     });
-                    lines.push(curLine);
-                    allTextData.push(lines);
+                    pageLines.push(curLine.trim());
+                    finalDocStructure.push(pageLines);
 
-                    // Hiển thị preview
-                    const div = document.createElement('div');
-                    div.className = "pdf-page";
-                    div.innerHTML = lines.map(l => `<p class="min-h-[1.2em]">${l}</p>`).join('');
-                    preview.appendChild(div);
+                    // Hiển thị Preview ngay lập tức
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = "document-page";
+                    pageDiv.innerHTML = pageLines.map(l => `<p class="min-h-[1.2em] mb-1">${l}</p>`).join('');
+                    preview.appendChild(pageDiv);
                 }
-                
-                document.getElementById('msg').innerText = "Đã phân tích xong!";
+
+                status.innerText = "✅ Hoàn tất! Bạn có thể xuất file Word.";
                 document.getElementById('btn-export').classList.remove('hidden');
+
             } catch (err) {
-                alert("Lỗi: " + err.message);
+                console.error(err);
+                alert("Lỗi khi đọc file PDF: " + err.message);
+                status.innerText = "❌ Lỗi xử lý.";
             }
         };
 
         document.getElementById('btn-export').onclick = async () => {
             const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx;
-            const sections = allTextData.map(lines => ({
-                properties: { page: { margin: { top: 1134, left: 1417, bottom: 1134, right: 850 } } },
-                children: lines.map(l => {
+            
+            const sections = finalDocStructure.map(lines => ({
+                properties: { page: { margin: { top: 1134, left: 1700, bottom: 1134, right: 850 } } },
+                children: lines.map(text => {
                     let align = AlignmentType.LEFT;
-                    // Tự động căn giữa Tiêu ngữ và Tên kế hoạch [cite: 5, 6]
-                    if (l.includes("CỘNG HÒA") || l.includes("KẾ HOẠCH") || l.includes("Độc lập")) align = AlignmentType.CENTER;
+                    // Căn giữa cho Tiêu ngữ và Tên kế hoạch
+                    if (text.includes("CỘNG HÒA") || text.includes("KẾ HOẠCH") || text.includes("Độc lập")) align = AlignmentType.CENTER;
                     
                     return new Paragraph({
                         alignment: align,
-                        children: [new TextRun({ text: l, font: "Times New Roman", size: 26 })],
-                        spacing: { line: 360 }
+                        children: [new TextRun({ text: text, font: "Times New Roman", size: 26 })],
+                        spacing: { line: 360, after: 120 }
                     });
                 })
             }));
 
             const blob = await Packer.toBlob(new Document({ sections }));
-            saveAs(blob, "Ket-qua-chuyen-doi.docx");
+            saveAs(blob, "Ket_qua_chuyen_doi_chuan.docx");
         };
     </script>
 </body>
