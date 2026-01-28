@@ -1,36 +1,114 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VN PDF to Word - AI Powered</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .document-preview { font-family: 'Times New Roman', serif; white-space: pre-wrap; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
 
-<script>
-// Cấu hình PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">VN PDF to Word</h1>
+                <p class="text-sm text-gray-500">AI Powered by Gemini</p>
+            </div>
+            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Lấy Key</button>
+        </div>
 
-async function showPreview(file) {
-    previewEmpty.classList.add('hidden');
-    previewContainer.classList.remove('hidden');
-    document.getElementById('preview-title').innerText = file.name;
-    const contentDiv = document.getElementById('preview-content');
-    
-    contentDiv.innerText = "⚡ Đang trích xuất văn bản từ PDF...";
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition">
+                <input type="file" id="file-input" class="hidden" accept=".pdf">
+                <label for="file-input" class="cursor-pointer">
+                    <div class="flex flex-col items-center">
+                        <i data-lucide="file-up" class="w-12 h-12 text-blue-500 mb-2"></i>
+                        <span class="font-medium text-blue-600">Thêm file PDF</span>
+                        <p class="text-xs text-gray-400 mt-1">(Tối đa 10MB để xử lý nhanh)</p>
+                    </div>
+                </label>
+                <div id="file-list" class="mt-4 text-left space-y-2"></div>
+            </div>
 
-    try {
-        // Đọc file PDF
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        let fullText = "";
+            <div class="bg-gray-50 border rounded-lg p-4 min-h-[300px] max-h-[500px] overflow-y-auto">
+                <div id="preview-empty" class="h-full flex flex-col items-center justify-center text-gray-400">
+                    <i data-lucide="eye" class="w-8 h-8 mb-2 opacity-20"></i>
+                    <p>Chọn file để trích xuất nội dung</p>
+                </div>
+                <div id="preview-container" class="hidden">
+                    <div class="flex justify-between items-center border-b pb-2 mb-2">
+                        <h3 id="preview-title" class="font-bold text-sm truncate"></h3>
+                        <span class="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded">Xong</span>
+                    </div>
+                    <div id="preview-content" class="document-preview text-sm text-gray-700 leading-relaxed"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // Chỉ đọc trang đầu tiên để demo cho nhanh (có thể sửa thành vòng lặp để đọc hết)
-        const page = await pdf.getPage(1);
-        const textContent = await page.getTextContent();
-        fullText = textContent.items.map(s => s.str).join(" ");
+    <script>
+        // Khởi tạo Icons
+        lucide.createIcons();
 
-        contentDiv.innerText = fullText.substring(0, 500) + "... (Đã trích xuất xong)";
-        
-        // GỌI AI TẠI ĐÂY
-        // processWithAI(fullText); 
+        // Cấu hình PDF.js Worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-    } catch (error) {
-        contentDiv.innerText = "❌ Lỗi: Không thể đọc file PDF này.";
-        console.error(error);
-    }
-}
-</script>
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const previewContainer = document.getElementById('preview-container');
+        const previewEmpty = document.getElementById('preview-empty');
+        const contentDiv = document.getElementById('preview-content');
+
+        fileInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Hiển thị tên file bên cột trái
+            fileList.innerHTML = `
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+                    <p class="text-sm font-medium text-blue-800 truncate">${file.name}</p>
+                </div>
+            `;
+
+            // Bắt đầu xử lý
+            previewEmpty.classList.add('hidden');
+            previewContainer.classList.remove('hidden');
+            document.getElementById('preview-title').innerText = file.name;
+            contentDiv.innerHTML = `<span class="animate-pulse text-blue-500">⚡ Đang trích xuất văn bản nhanh...</span>`;
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                let fullText = "";
+
+                // Đọc 3 trang đầu tiên để đảm bảo tốc độ cực nhanh
+                const numPages = Math.min(pdf.numPages, 3);
+                
+                for (let i = 1; i <= numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(s => s.str).join(" ");
+                    fullText += pageText + "\n\n";
+                }
+
+                if (fullText.trim() === "") {
+                    contentDiv.innerText = "Không tìm thấy văn bản trong file này (có thể là file ảnh scan).";
+                } else {
+                    contentDiv.innerText = fullText;
+                }
+
+            } catch (error) {
+                contentDiv.innerText = "❌ Lỗi: Không thể xử lý file PDF này.";
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
