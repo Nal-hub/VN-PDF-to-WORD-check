@@ -6,60 +6,66 @@
     <title>VN PDF to Word - Giữ nguyên định dạng</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <script src="https://unpkg.com/docx@7.8.2/build/index.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .document-preview { 
-            font-family: 'Times New Roman', serif; 
-            white-space: pre-wrap; 
-            line-height: 1.5;
-            text-align: justify;
-        }
+        .document-preview { font-family: 'Times New Roman', serif; white-space: pre-wrap; line-height: 1.5; text-align: justify; }
+        .page-break { border-top: 2px dashed #e2e8f0; margin: 20px 0; position: relative; }
+        .page-label { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #f8fafc; padding: 0 10px; font-size: 10px; color: #94a3b8; }
     </style>
 </head>
-<body class="bg-slate-50 p-4 md:p-8">
+<body class="bg-slate-50 min-h-screen">
 
-    <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div class="bg-blue-600 p-6 text-white flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i data-lucide="file-check"></i> VN PDF to Word Pro
-                </h1>
-                <p class="text-blue-100 text-xs">Giữ tối đa định dạng & nội dung gốc</p>
+    <div class="max-w-5xl mx-auto p-4 md:p-8">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-none">VN PDF to Word</h1>
+                    <p class="text-xs text-slate-500 mt-1">Chuyển đổi giữ nguyên cấu trúc văn bản</p>
+                </div>
             </div>
-            <div id="action-buttons" class="hidden animate-bounce">
-                <button onclick="downloadWord()" class="bg-white text-blue-600 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-blue-50 transition flex items-center gap-2">
-                    <i data-lucide="download"></i> TẢI FILE WORD (.DOCX)
+            <div id="action-area" class="hidden flex gap-3">
+                <button onclick="downloadWord()" class="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i> XUẤT FILE WORD
                 </button>
             </div>
         </div>
 
-        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="border-2 border-dashed border-slate-200 rounded-xl p-8 bg-slate-50 flex flex-col items-center justify-center min-h-[300px]">
-                <input type="file" id="file-input" class="hidden" accept=".pdf">
-                <label for="file-input" class="cursor-pointer text-center group">
-                    <div class="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-all mx-auto">
-                        <i data-lucide="upload" class="w-10 h-10"></i>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-4">
+                <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 bg-white hover:border-blue-400 transition-all cursor-pointer group text-center relative">
+                    <input type="file" id="file-input" class="absolute inset-0 opacity-0 cursor-pointer" accept=".pdf">
+                    <div class="pointer-events-none">
+                        <i data-lucide="cloud-upload" class="w-12 h-12 text-slate-300 group-hover:text-blue-500 transition mx-auto mb-3"></i>
+                        <p class="font-bold text-slate-700">Chọn file PDF</p>
+                        <p class="text-xs text-slate-400 mt-1">Hỗ trợ cả file văn bản và file scan</p>
                     </div>
-                    <p class="text-lg font-bold text-slate-700">Chọn file PDF cần chuyển đổi</p>
-                    <p id="selected-name" class="text-sm text-blue-500 mt-2 italic"></p>
-                </label>
+                </div>
+                <div id="status-card" class="hidden p-4 bg-white rounded-xl border border-slate-100 shadow-sm space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+                        <span id="status-text" class="text-sm font-medium text-slate-600">Đang khởi tạo...</span>
+                    </div>
+                    <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
             </div>
 
-            <div class="bg-slate-800 rounded-xl p-4">
-                <div id="status-container" class="hidden mb-4 bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg flex items-center gap-3">
-                    <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent animate-spin rounded-full"></div>
-                    <span id="status-text" class="text-blue-400 text-sm font-medium">Đang xử lý...</span>
-                </div>
-                <div id="preview-box" class="bg-white rounded-lg p-6 min-h-[400px] max-h-[600px] overflow-y-auto">
-                    <div id="preview-content" class="document-preview text-slate-800 text-sm">
-                        <div class="h-full flex flex-col items-center justify-center py-20 text-slate-300">
-                            <i data-lucide="layout" class="w-12 h-12 mb-2 opacity-20"></i>
-                            <p>Bản xem trước định dạng sẽ hiện ở đây</p>
+            <div class="lg:col-span-8">
+                <div class="bg-slate-800 rounded-2xl p-1 shadow-2xl">
+                    <div class="bg-white rounded-xl p-8 min-h-[500px] max-h-[700px] overflow-y-auto" id="preview-scroll">
+                        <div id="preview-empty" class="h-full flex flex-col items-center justify-center py-24 text-slate-300">
+                            <i data-lucide="scan-line" class="w-16 h-16 mb-4 opacity-10"></i>
+                            <p class="font-medium">Nội dung sau chuyển đổi sẽ hiển thị tại đây</p>
                         </div>
+                        <div id="preview-content" class="document-preview text-slate-800 text-base"></div>
                     </div>
                 </div>
             </div>
@@ -68,95 +74,104 @@
 
     <script>
         lucide.createIcons();
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        let finalLines = []; 
+        let allPagesContent = [];
 
         document.getElementById('file-input').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            document.getElementById('selected-name').innerText = file.name;
-            document.getElementById('status-container').classList.remove('hidden');
-            document.getElementById('action-buttons').classList.add('hidden');
-            const preview = document.getElementById('preview-content');
-            preview.innerText = "";
-            finalLines = [];
-
+            // Reset UI
+            allPagesContent = [];
+            document.getElementById('preview-content').innerHTML = "";
+            document.getElementById('preview-empty').classList.add('hidden');
+            document.getElementById('status-card').classList.remove('hidden');
+            document.getElementById('action-area').classList.add('hidden');
+            
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                
-                // Duyệt qua tất cả các trang để giữ nguyên nội dung
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    document.getElementById('status-text').innerText = `Đang xử lý trang ${i}/${pdf.numPages}...`;
+                const totalPages = pdf.numPages;
+
+                for (let i = 1; i <= totalPages; i++) {
+                    const progress = (i / totalPages) * 100;
+                    document.getElementById('progress-bar').style.width = `${progress}%`;
+                    document.getElementById('status-text').innerText = `Đang xử lý trang ${i}/${totalPages}...`;
+
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
-                    // Sắp xếp lại text theo tọa độ Y để giữ dòng
+                    // Sắp xếp tọa độ để giữ định dạng dòng
                     const items = textContent.items.sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
                     
                     let lastY = -1;
                     let pageText = "";
                     
-                    if (items.length > 5) { // PDF có text
+                    if (items.length > 5) {
                         items.forEach(item => {
-                            if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
-                                pageText += "\n";
-                            }
+                            if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) pageText += "\n";
                             pageText += item.str + " ";
                             lastY = item.transform[5];
                         });
-                    } else { // Xử lý OCR nếu là file scan
+                    } else {
+                        // OCR cho trang scan
                         const viewport = page.getViewport({ scale: 2.0 });
                         const canvas = document.createElement('canvas');
                         const context = canvas.getContext('2d');
                         canvas.height = viewport.height;
                         canvas.width = viewport.width;
                         await page.render({ canvasContext: context, viewport: viewport }).promise;
-                        
                         const result = await Tesseract.recognize(canvas, 'vie');
                         pageText = result.data.text;
                     }
+
+                    allPagesContent.push(pageText);
                     
-                    finalLines.push(...pageText.split('\n'));
-                    preview.innerText += pageText + "\n--- Trang " + i + " ---\n";
+                    // Hiển thị preview từng trang
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = "mb-8";
+                    pageDiv.innerText = pageText;
+                    if (i < totalPages) {
+                        const hr = document.createElement('div');
+                        hr.className = "page-break";
+                        hr.innerHTML = `<span class="page-label">TRANG ${i+1}</span>`;
+                        pageDiv.appendChild(hr);
+                    }
+                    document.getElementById('preview-content').appendChild(pageDiv);
                 }
 
-                document.getElementById('status-container').classList.add('hidden');
-                document.getElementById('action-buttons').classList.remove('hidden');
+                document.getElementById('status-text').innerText = "Chuyển đổi hoàn tất!";
+                document.getElementById('action-area').classList.remove('hidden');
+                setTimeout(() => document.getElementById('status-card').classList.add('hidden'), 2000);
 
-            } catch (error) {
-                document.getElementById('status-text').innerText = "Lỗi định dạng PDF.";
+            } catch (err) {
+                document.getElementById('status-text').innerText = "Lỗi: " + err.message;
             }
         });
 
         async function downloadWord() {
             const { Document, Packer, Paragraph, TextRun, AlignmentType } = docx;
 
-            const doc = new Document({
-                sections: [{
-                    properties: {
-                        page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } }
-                    },
-                    children: finalLines.map(line => 
-                        new Paragraph({
-                            alignment: AlignmentType.JUSTIFIED,
-                            children: [
-                                new TextRun({
-                                    text: line,
-                                    font: "Times New Roman",
-                                    size: 26, // Tương đương 13pt chuẩn Việt Nam
-                                }),
-                            ],
-                            spacing: { line: 360 }, // Giữ giãn dòng chuẩn
-                        })
-                    ),
-                }],
+            const children = [];
+            allPagesContent.forEach((content, index) => {
+                const lines = content.split('\n');
+                lines.forEach(line => {
+                    children.push(new Paragraph({
+                        alignment: AlignmentType.JUSTIFIED,
+                        children: [new TextRun({ text: line, font: "Times New Roman", size: 26 })],
+                        spacing: { line: 360, after: 120 }
+                    }));
+                });
+                // Thêm ngắt trang trong Word nếu không phải trang cuối
+                if (index < allPagesContent.length - 1) {
+                    children.push(new Paragraph({ children: [new TextRun({ text: "", break: 1 })] }));
+                }
             });
 
+            const doc = new Document({ sections: [{ properties: {}, children: children }] });
             const blob = await Packer.toBlob(doc);
-            saveAs(blob, "Tai-Lieu-Goc.docx");
+            saveAs(blob, "Luu-Tru-Van-Ban.docx");
         }
     </script>
 </body>
